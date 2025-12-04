@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { StepIndicator } from './StepIndicator';
 import { WelcomeStep } from './WelcomeStep';
-import { SportPositionStep } from './SportPositionStep';
+import { DemographicsStep } from './DemographicsStep';
+import { EnhancedSportPositionStep } from './EnhancedSportPositionStep';
 import { GoalDefinitionStep } from './GoalDefinitionStep';
+import { PerformanceBaselineStep } from './PerformanceBaselineStep';
 import { BodyProfileStep } from './BodyProfileStep';
 import { ScheduleStep } from './ScheduleStep';
 import { ExperienceStep } from './ExperienceStep';
@@ -11,11 +13,23 @@ import { MentalProfileStep } from './MentalProfileStep';
 import { SummaryStep } from './SummaryStep';
 
 export interface OnboardingData {
+  // From DemographicsStep
+  dateOfBirth?: string;
+  gender?: string;
+  emergencyContact?: string;
+  medicalConditions?: string[];
+  medications?: string;
+  dietaryRestrictions?: string;
+  isPregnant?: boolean;
+
   // From SportPositionStep
   sport?: string;
   position?: string;
   level?: string;
-  
+  seasonPhase?: string;
+  nextCompetition?: string;
+  teamSchedule?: string;
+
   // From GoalDefinitionStep
   goals?: Array<{
     category: string;
@@ -23,21 +37,37 @@ export interface OnboardingData {
     priority: number;
     timeline: string;
   }>;
-  
+
+  // From PerformanceBaselineStep
+  pushUps?: string;
+  pullUps?: string;
+  mileTime?: string;
+  fortyYardDash?: string;
+  verticalJump?: string;
+  benchPress?: string;
+  beepTest?: string;
+  recentFrequency?: string;
+  recentFocus?: string;
+  sleepHours?: string;
+  stressLevel?: string;
+  hydration?: string;
+  nutritionApproach?: string;
+  recoveryTools?: string[];
+
   // From BodyProfileStep
   bodyType?: string;
   height?: { feet: string; inches: string };
   weight?: number;
   injuries?: string[];
   equipmentAccess?: string[];
-  
+
   // From ScheduleStep
   trainingDays?: string[];
   preferredTime?: string;
   sessionDuration?: number;
   competitionSchedule?: string;
   weeklyVolume?: number;
-  
+
   // From ExperienceStep
   trainingExperience?: string;
   currentWorkload?: string;
@@ -45,7 +75,7 @@ export interface OnboardingData {
   motivators?: string[];
   strengths?: string[];
   weaknesses?: string[];
-  
+
   // From MentalProfileStep
   confidenceLevel?: number;
   stressResponse?: string;
@@ -67,13 +97,15 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
 
   const steps = [
     { label: 'Welcome', completed: currentStep > 0 },
-    { label: 'Sport', completed: currentStep > 1 },
-    { label: 'Goals', completed: currentStep > 2 },
-    { label: 'Body Profile', completed: currentStep > 3 },
-    { label: 'Schedule', completed: currentStep > 4 },
-    { label: 'Experience', completed: currentStep > 5 },
-    { label: 'Mental', completed: currentStep > 6 },
-    { label: 'Review', completed: currentStep > 7 }
+    { label: 'Personal', completed: currentStep > 1 },
+    { label: 'Sport', completed: currentStep > 2 },
+    { label: 'Goals', completed: currentStep > 3 },
+    { label: 'Baseline', completed: currentStep > 4 },
+    { label: 'Body', completed: currentStep > 5 },
+    { label: 'Schedule', completed: currentStep > 6 },
+    { label: 'Experience', completed: currentStep > 7 },
+    { label: 'Mental', completed: currentStep > 8 },
+    { label: 'Review', completed: currentStep > 9 }
   ];
 
   const handleNext = (stepData: any) => {
@@ -128,57 +160,76 @@ export function OnboardingWizard({ onComplete, onClose }: OnboardingWizardProps)
             {currentStep === 0 && (
               <WelcomeStep onNext={() => setCurrentStep(1)} />
             )}
-            
+
             {currentStep === 1 && (
-              <SportPositionStep 
+              <DemographicsStep
                 data={data}
-                onNext={handleNext}
+                onUpdate={setData}
+                onNext={() => setCurrentStep(2)}
                 onBack={handleBack}
               />
             )}
-            
+
             {currentStep === 2 && (
-              <GoalDefinitionStep 
+              <EnhancedSportPositionStep
                 data={data}
-                onNext={handleNext}
+                onUpdate={setData}
+                onNext={() => setCurrentStep(3)}
                 onBack={handleBack}
               />
             )}
-            
+
             {currentStep === 3 && (
-              <BodyProfileStep 
+              <GoalDefinitionStep
                 data={data}
                 onNext={handleNext}
                 onBack={handleBack}
               />
             )}
-            
+
             {currentStep === 4 && (
-              <ScheduleStep 
+              <PerformanceBaselineStep
                 data={data}
-                onNext={handleNext}
+                onUpdate={setData}
+                onNext={() => setCurrentStep(5)}
                 onBack={handleBack}
               />
             )}
-            
+
             {currentStep === 5 && (
-              <ExperienceStep 
+              <BodyProfileStep
                 data={data}
                 onNext={handleNext}
                 onBack={handleBack}
               />
             )}
-            
+
             {currentStep === 6 && (
-              <MentalProfileStep 
+              <ScheduleStep
                 data={data}
                 onNext={handleNext}
                 onBack={handleBack}
               />
             )}
-            
+
             {currentStep === 7 && (
-              <SummaryStep 
+              <ExperienceStep
+                data={data}
+                onNext={handleNext}
+                onBack={handleBack}
+              />
+            )}
+
+            {currentStep === 8 && (
+              <MentalProfileStep
+                data={data}
+                onNext={handleNext}
+                onBack={handleBack}
+              />
+            )}
+
+            {currentStep === 9 && (
+              <SummaryStep
                 data={data}
                 onComplete={handleComplete}
                 onBack={handleBack}
