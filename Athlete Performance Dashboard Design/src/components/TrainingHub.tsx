@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
-import { Calendar, Dumbbell, Plus, TrendingUp, Clock, CheckCircle2, Circle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Dumbbell, Plus, TrendingUp, Clock, CheckCircle2, Circle, BookOpen, Activity } from 'lucide-react';
 import { Button } from './Button';
+import { WorkoutLogger } from './WorkoutLogger';
+import { PracticeGameJournalComponent } from './PracticeGameJournal';
+import { workoutHelpers, journalHelpers, type WorkoutLog, type PracticeGameJournal } from '../lib/supabase';
 
 interface TrainingHubProps {
-  onSaveWorkout: (workout: any) => void;
+  onSaveWorkout?: (workout: any) => void;
+  userId?: string;
 }
 
-export function TrainingHub({ onSaveWorkout }: TrainingHubProps) {
+export function TrainingHub({ onSaveWorkout, userId }: TrainingHubProps) {
   const [selectedDay, setSelectedDay] = useState('Monday');
   const [showLogger, setShowLogger] = useState(false);
+  const [showJournal, setShowJournal] = useState(false);
+  const [activeView, setActiveView] = useState<'schedule' | 'logger' | 'journal'>('schedule');
+  const [recentWorkouts, setRecentWorkouts] = useState<WorkoutLog[]>([]);
+  const [recentJournals, setRecentJournals] = useState<PracticeGameJournal[]>([]);
 
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -87,19 +95,87 @@ export function TrainingHub({ onSaveWorkout }: TrainingHubProps) {
     { exercise: '40-Yard Dash', current: 4.6, start: 4.9, goal: 4.4 },
   ];
 
+  useEffect(() => {
+    if (userId) {
+      loadRecentData();
+    }
+  }, [userId]);
+
+  const loadRecentData = async () => {
+    if (!userId) return;
+
+    const [workouts, journals] = await Promise.all([
+      workoutHelpers.getRecentWorkouts(userId, 5),
+      journalHelpers.getRecentJournals(userId, 5)
+    ]);
+
+    setRecentWorkouts(workouts);
+    setRecentJournals(journals);
+  };
+
+  const handleWorkoutComplete = async (workout: WorkoutLog) => {
+    console.log('Workout saved:', workout);
+    setActiveView('schedule');
+    loadRecentData();
+    if (onSaveWorkout) {
+      onSaveWorkout(workout);
+    }
+  };
+
+  const handleJournalSave = async (journal: PracticeGameJournal) => {
+    console.log('Journal saved:', journal);
+    setActiveView('schedule');
+    loadRecentData();
+  };
+
   return (
     <div className="space-y-6 animate-slide-in-up">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* Show different views based on activeView state */}
+      {activeView === 'logger' && userId ? (
         <div>
-          <h2 className="text-white mb-2">Training Hub</h2>
-          <p className="text-gray-400">Track your workouts and monitor your progress</p>
+          <button
+            onClick={() => setActiveView('schedule')}
+            className="mb-4 text-gray-400 hover:text-white flex items-center gap-2"
+          >
+            ← Back to Schedule
+          </button>
+          <WorkoutLogger
+            userId={userId}
+            onComplete={handleWorkoutComplete}
+          />
         </div>
-        <Button variant="primary" onClick={() => setShowLogger(true)}>
-          <Plus className="w-5 h-5" />
-          Log Workout
-        </Button>
-      </div>
+      ) : activeView === 'journal' && userId ? (
+        <div>
+          <button
+            onClick={() => setActiveView('schedule')}
+            className="mb-4 text-gray-400 hover:text-white flex items-center gap-2"
+          >
+            ← Back to Schedule
+          </button>
+          <PracticeGameJournalComponent
+            userId={userId}
+            onSave={handleJournalSave}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-white mb-2">Training Hub</h2>
+              <p className="text-gray-400">Track your workouts and monitor your progress</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="primary" onClick={() => setActiveView('logger')}>
+                <Activity className="w-5 h-5" />
+                Log Workout
+              </Button>
+              <Button variant="outline" onClick={() => setActiveView('journal')}>
+                <BookOpen className="w-5 h-5" />
+                Journal Entry
+              </Button>
+            </div>
+          </div>
 
       {/* Weekly Calendar */}
       <div className="bg-[#141414] border border-[#252525] rounded-2xl p-6">
@@ -262,6 +338,8 @@ export function TrainingHub({ onSaveWorkout }: TrainingHubProps) {
           ))}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

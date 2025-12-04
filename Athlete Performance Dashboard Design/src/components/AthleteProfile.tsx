@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Camera, MapPin, GraduationCap, Award, Heart, Star, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Camera, MapPin, GraduationCap, Award, Heart, Star, Upload, User, Ruler, Weight, Calendar, Target, CheckCircle } from 'lucide-react';
 import { Button } from './Button';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { supabase, profileHelpers } from '../lib/supabase';
 
 interface AthleteProfileProps {
   userData: any;
@@ -10,6 +11,57 @@ interface AthleteProfileProps {
 
 export function AthleteProfile({ userData, onUpdate }: AthleteProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchFullProfile();
+  }, [userData?.id]);
+
+  async function fetchFullProfile() {
+    if (!userData?.id) return;
+
+    try {
+      setLoading(true);
+      const profileData = await profileHelpers.getProfile(userData.id);
+      if (profileData) {
+        setProfile(profileData);
+        console.log('Full profile loaded:', profileData);
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Calculate age from date_of_birth
+  const calculateAge = (dob: string) => {
+    if (!dob) return null;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  // Convert cm to feet and inches
+  const formatHeight = (cm: number) => {
+    if (!cm) return 'Not specified';
+    const totalInches = cm / 2.54;
+    const feet = Math.floor(totalInches / 12);
+    const inches = Math.round(totalInches % 12);
+    return `${feet}'${inches}"`;
+  };
+
+  // Convert kg to lbs
+  const formatWeight = (kg: number) => {
+    if (!kg) return 'Not specified';
+    return `${Math.round(kg * 2.20462)} lbs`;
+  };
 
   const achievements = [
     { year: '2024', title: 'All-State First Team', description: 'Selected as one of the top players in the state' },
@@ -40,12 +92,25 @@ export function AthleteProfile({ userData, onUpdate }: AthleteProfileProps) {
     },
   ];
 
+  // Use profile data if available, fallback to userData
+  const displayProfile = profile || userData;
+
   const stats = [
-    { label: 'Height', value: '6\'2"' },
-    { label: 'Weight', value: '185 lbs' },
-    { label: 'Position', value: 'Running Back' },
-    { label: 'Jersey #', value: '24' },
+    { label: 'Sport', value: displayProfile?.sport || 'Not specified', icon: Award },
+    { label: 'Position', value: displayProfile?.position || 'Not specified', icon: User },
+    { label: 'Height', value: formatHeight(displayProfile?.height_cm), icon: Ruler },
+    { label: 'Weight', value: formatWeight(displayProfile?.weight_kg), icon: Weight },
+    { label: 'Age', value: calculateAge(displayProfile?.date_of_birth) ? `${calculateAge(displayProfile?.date_of_birth)} years` : 'Not specified', icon: Calendar },
+    { label: 'Skill Level', value: displayProfile?.skill_level?.charAt(0).toUpperCase() + displayProfile?.skill_level?.slice(1) || 'Not specified', icon: Star },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin w-12 h-12 border-4 border-[#03fd1c] border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-slide-in-up">
@@ -84,20 +149,26 @@ export function AthleteProfile({ userData, onUpdate }: AthleteProfileProps) {
         <div className="bg-[#141414] border border-[#252525] rounded-2xl p-6 pt-16">
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
             <div className="ml-0 md:ml-36">
-              <h2 className="text-white mb-2">{userData.name}</h2>
+              <h2 className="text-white mb-2">{displayProfile?.name || userData?.name || userData?.email?.split('@')[0] || 'Athlete'}</h2>
               <div className="flex flex-wrap items-center gap-4 text-gray-400">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>{userData.school}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="w-4 h-4" />
-                  <span>Class of {userData.gradYear}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4" />
-                  <span>GPA: {userData.gpa}</span>
-                </div>
+                {(displayProfile?.school || userData?.school) && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>{displayProfile?.school || userData?.school}</span>
+                  </div>
+                )}
+                {(displayProfile?.graduation_year || userData?.gradYear) && (
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4" />
+                    <span>Class of {displayProfile?.graduation_year || userData?.gradYear}</span>
+                  </div>
+                )}
+                {(displayProfile?.gpa || userData?.gpa) && (
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4" />
+                    <span>GPA: {displayProfile?.gpa || userData?.gpa}</span>
+                  </div>
+                )}
               </div>
             </div>
             <Button 
@@ -115,24 +186,83 @@ export function AthleteProfile({ userData, onUpdate }: AthleteProfileProps) {
               <textarea
                 className="w-full bg-[#0a0a0a] border border-[#252525] rounded-lg p-4 text-white resize-none"
                 rows={4}
-                defaultValue={userData.bio}
+                defaultValue={displayProfile?.bio || userData?.bio || ''}
+                placeholder="Tell us about yourself, your athletic journey, and your goals..."
               />
             ) : (
-              <p className="text-gray-300">{userData.bio}</p>
+              <p className="text-gray-300">
+                {displayProfile?.bio || userData?.bio ||
+                  `Dedicated ${displayProfile?.sport || 'athlete'} with a passion for excellence both on the field and in the classroom.`}
+              </p>
             )}
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {stats.map((stat, idx) => (
-              <div key={idx} className="bg-[#0a0a0a] rounded-lg p-4 text-center">
-                <p className="text-gray-400 mb-1">{stat.label}</p>
-                <p className="text-white">{stat.value}</p>
+              <div key={idx} className="bg-[#0a0a0a] rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <stat.icon className="w-4 h-4 text-[#03fd1c]" />
+                  <p className="text-gray-400 text-sm">{stat.label}</p>
+                </div>
+                <p className="text-white font-medium">{stat.value}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Training Information */}
+      {displayProfile?.primary_goals && displayProfile.primary_goals.length > 0 && (
+        <div className="bg-[#141414] border border-[#252525] rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <Target className="w-6 h-6 text-[#03fd1c]" />
+            <h3 className="text-white">Training Goals & Preferences</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="text-gray-400 mb-3">Primary Goals</h4>
+              <ul className="space-y-2">
+                {displayProfile.primary_goals.map((goal: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-[#03fd1c] mt-0.5" />
+                    <span className="text-gray-300">{goal}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {displayProfile?.training_days && displayProfile.training_days.length > 0 && (
+              <div>
+                <h4 className="text-gray-400 mb-3">Training Schedule</h4>
+                <div className="flex flex-wrap gap-2">
+                  {displayProfile.training_days.map((day: string, idx: number) => (
+                    <span key={idx} className="px-3 py-1 bg-[#0a0a0a] rounded-full text-sm text-gray-300">
+                      {day}
+                    </span>
+                  ))}
+                </div>
+                {displayProfile?.session_duration_minutes && (
+                  <p className="text-gray-400 text-sm mt-3">
+                    Session duration: {displayProfile.session_duration_minutes} minutes
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          {displayProfile?.equipment_available && displayProfile.equipment_available.length > 0 && (
+            <div className="mt-6">
+              <h4 className="text-gray-400 mb-3">Available Equipment</h4>
+              <div className="flex flex-wrap gap-2">
+                {displayProfile.equipment_available.map((item: string, idx: number) => (
+                  <span key={idx} className="px-3 py-1 bg-[#0a0a0a] border border-[#252525] rounded-lg text-sm text-gray-300">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Character Traits */}
       <div className="bg-[#141414] border border-[#252525] rounded-2xl p-6">

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { StatCard } from './StatCard';
 import { ProgressRing } from './ProgressRing';
-import { Calendar, Flame, Eye, TrendingUp, ChevronRight, Play, Target, Zap } from 'lucide-react';
+import { Calendar, Flame, Eye, TrendingUp, ChevronRight, Play, Target, Zap, Brain, CheckCircle } from 'lucide-react';
 import { Button } from './Button';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
+import { supabase } from '../lib/supabase';
 
 interface DashboardHomeProps {
   userData: any;
@@ -22,6 +23,7 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
   ]);
   const [loadingGoals, setLoadingGoals] = useState(true);
   const [hasGritPlan, setHasGritPlan] = useState(false);
+  const [trainingPlan, setTrainingPlan] = useState<any>(null);
 
   const upcomingWorkouts = [
     { day: 'Today', title: 'Upper Body Strength', time: '4:00 PM', exercises: 8 },
@@ -55,31 +57,90 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
   const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
 
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && userData) {
       fetchStats();
       fetchWeeklyGoals();
       checkForGritPlan();
     }
-  }, [accessToken]);
+  }, [accessToken, userData]);
 
   async function fetchStats() {
     try {
       setLoadingStats(true);
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-eec32171/stats`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
+
+      // Calculate days trained this week
+      const startOfWeek = new Date();
+      startOfWeek.setHours(0, 0, 0, 0);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+      const { data: weeklyWorkouts, error: workoutError } = await supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('athlete_id', userData.id || userData.user_id)
+        .gte('workout_date', startOfWeek.toISOString())
+        .eq('completion_status', 'completed');
+
+      // Calculate current streak
+      const { data: allWorkouts } = await supabase
+        .from('workout_logs')
+        .select('workout_date')
+        .eq('athlete_id', userData.id || userData.user_id)
+        .eq('completion_status', 'completed')
+        .order('workout_date', { ascending: false })
+        .limit(30);
+
+      let streak = 0;
+      if (allWorkouts && allWorkouts.length > 0) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let currentDate = new Date(allWorkouts[0].workout_date);
+        currentDate.setHours(0, 0, 0, 0);
+
+        // Check if the streak includes today or yesterday
+        const daysDiff = Math.floor((today.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff <= 1) {
+          streak = 1;
+          for (let i = 1; i < allWorkouts.length; i++) {
+            const prevDate = new Date(allWorkouts[i - 1].workout_date);
+            const currDate = new Date(allWorkouts[i].workout_date);
+            prevDate.setHours(0, 0, 0, 0);
+            currDate.setHours(0, 0, 0, 0);
+
+            const diff = Math.floor((prevDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24));
+            if (diff === 1) {
+              streak++;
+            } else {
+              break;
+            }
           }
         }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
-      } else {
-        console.error('Failed to fetch stats:', await response.text());
       }
+
+      // Get GRIT Score from profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('grit_score')
+        .eq('id', userData.id || userData.user_id)
+        .single();
+
+      setStats({
+        daysTrainedThisWeek: {
+          value: weeklyWorkouts?.length || 0,
+          trend: { value: 0, isPositive: true }
+        },
+        currentStreak: {
+          value: `${streak} Days`,
+          trend: { value: 0, isPositive: streak > 0 }
+        },
+        profileViews: {
+          value: '0',
+          trend: { value: 0, isPositive: true }
+        },
+        gritScore: {
+          value: profile?.grit_score || 0,
+          trend: { value: 0, isPositive: true }
+        }
+      });
     } catch (error) {
       console.error('Error fetching stats:', error);
     } finally {
@@ -90,21 +151,62 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
   async function fetchWeeklyGoals() {
     try {
       setLoadingGoals(true);
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-eec32171/weekly-goals`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        }
-      );
 
-      if (response.ok) {
-        const data = await response.json();
-        setWeeklyGoals(data.goals);
-      } else {
-        console.error('Failed to fetch weekly goals:', await response.text());
-      }
+      // Get workouts completed this week
+      const startOfWeek = new Date();
+      startOfWeek.setHours(0, 0, 0, 0);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+      const { data: weeklyWorkouts } = await supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('athlete_id', userData.id || userData.user_id)
+        .gte('workout_date', startOfWeek.toISOString())
+        .eq('completion_status', 'completed');
+
+      // Get nutrition logs this week
+      const { data: nutritionLogs } = await supabase
+        .from('nutrition_logs')
+        .select('*')
+        .eq('athlete_id', userData.id || userData.user_id)
+        .gte('log_date', startOfWeek.toISOString());
+
+      // Get recovery activities this week (could be from journals or a separate table)
+      const { data: recoveryActivities } = await supabase
+        .from('practice_game_journals')
+        .select('*')
+        .eq('athlete_id', userData.id || userData.user_id)
+        .gte('event_date', startOfWeek.toISOString());
+
+      // Get user's weekly goals from profile or use defaults
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('training_days')
+        .eq('id', userData.id || userData.user_id)
+        .single();
+
+      const targetWorkouts = profile?.training_days?.length || 5;
+      const completedWorkouts = weeklyWorkouts?.length || 0;
+      const nutritionDays = nutritionLogs?.length || 0;
+      const recoveryDays = recoveryActivities?.filter(a => a.energy_level && a.energy_level >= 7).length || 0;
+
+      setWeeklyGoals([
+        {
+          label: 'Workouts',
+          progress: targetWorkouts > 0 ? Math.round((completedWorkouts / targetWorkouts) * 100) : 0,
+          value: `${completedWorkouts}/${targetWorkouts}`
+        },
+        {
+          label: 'Nutrition',
+          progress: Math.round((nutritionDays / 7) * 100),
+          value: `${nutritionDays}/7`
+        },
+        {
+          label: 'Recovery',
+          progress: Math.round((recoveryDays / 5) * 100),
+          value: `${recoveryDays}/5`
+        }
+      ]);
     } catch (error) {
       console.error('Error fetching weekly goals:', error);
     } finally {
@@ -114,21 +216,32 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
 
   async function checkForGritPlan() {
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-eec32171/plan/check`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        }
-      );
+      // Check if user has an active AI-generated training plan
+      console.log('Checking for AI plan for athlete:', userData.id || userData.user_id);
 
-      if (response.ok) {
-        const data = await response.json();
-        setHasGritPlan(data.hasPlan);
+      const { data, error } = await supabase
+        .from('training_plans')
+        .select('*')
+        .eq('athlete_id', userData.id || userData.user_id)
+        .eq('status', 'active')
+        .eq('ai_generated', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      console.log('Training plan query result:', { data, error });
+
+      if (!error && data && data.length > 0) {
+        setHasGritPlan(true);
+        setTrainingPlan(data[0]);
+        console.log('Found AI training plan:', data[0]);
+      } else {
+        setHasGritPlan(false);
+        setTrainingPlan(null);
+        console.log('No AI training plan found, error:', error);
       }
     } catch (error) {
       console.error('Error checking for GRIT plan:', error);
+      setHasGritPlan(false);
     }
   }
 
@@ -216,7 +329,7 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
         )}
       </div>
 
-      {/* GRIT Plan CTA or Motivational Quote */}
+      {/* GRIT Plan CTA or Active Plan Display */}
       {!hasGritPlan ? (
         <div className="bg-gradient-to-r from-[#03fd1c] to-[#02c916] rounded-2xl p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -231,7 +344,7 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
                 </p>
               </div>
             </div>
-            <Button 
+            <Button
               variant="secondary"
               size="lg"
               onClick={() => onNavigate?.('planBuilder')}
@@ -243,8 +356,34 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
           </div>
         </div>
       ) : (
-        <div className="bg-gradient-to-r from-[#03fd1c] to-[#02c916] rounded-2xl p-8 text-center">
-          <p className="text-black text-xl italic">"{randomQuote}"</p>
+        <div className="bg-gradient-to-r from-[#03fd1c] to-[#02c916] rounded-2xl p-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-black/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <Brain className="w-8 h-8 text-black" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-black mb-1">Your AI Plan is Active!</h3>
+                <p className="text-black/80">
+                  {trainingPlan?.name || 'Personalized GRIT Training Plan'}
+                </p>
+                {trainingPlan?.duration_weeks && (
+                  <p className="text-black/60 text-sm mt-1">
+                    {trainingPlan.duration_weeks} week program • {trainingPlan.plan_type || 'Hybrid'} training
+                  </p>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() => onNavigate?.('training')}
+              className="bg-black text-[#03fd1c] hover:bg-black/90 border-black whitespace-nowrap"
+            >
+              <CheckCircle className="w-5 h-5" />
+              View Your Plan
+            </Button>
+          </div>
         </div>
       )}
 
