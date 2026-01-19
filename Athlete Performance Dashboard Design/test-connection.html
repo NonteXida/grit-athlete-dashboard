@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Supabase Connection</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0a0a0a;
+            color: #03fd1c;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        input, button {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            background: #141414;
+            border: 1px solid #252525;
+            color: #03fd1c;
+        }
+        button {
+            cursor: pointer;
+            border-color: #03fd1c;
+        }
+        button:hover {
+            background: #03fd1c;
+            color: #000;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 20px;
+            background: #141414;
+            border: 1px solid #252525;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error { color: #ff0000; }
+        .success { color: #03fd1c; }
+        .info { color: #00bfff; }
+    </style>
+</head>
+<body>
+    <h1>GRIT Dashboard - Supabase Connection Test</h1>
+
+    <div>
+        <h2>1. Test Connection</h2>
+        <button onclick="testConnection()">Test Supabase Connection</button>
+        <div id="connection-result" class="result"></div>
+    </div>
+
+    <div>
+        <h2>2. Test Login</h2>
+        <input type="email" id="email" placeholder="Email" value="test@example.com">
+        <input type="password" id="password" placeholder="Password" value="testpass123">
+        <button onclick="testLogin()">Test Login</button>
+        <div id="login-result" class="result"></div>
+    </div>
+
+    <div>
+        <h2>3. Test Signup</h2>
+        <input type="email" id="signup-email" placeholder="New Email">
+        <input type="password" id="signup-password" placeholder="New Password">
+        <button onclick="testSignup()">Test Signup</button>
+        <div id="signup-result" class="result"></div>
+    </div>
+
+    <div>
+        <h2>4. Check Session</h2>
+        <button onclick="checkSession()">Check Current Session</button>
+        <div id="session-result" class="result"></div>
+    </div>
+
+    <div>
+        <h2>5. Test Database</h2>
+        <button onclick="testDatabase()">Test Database Access</button>
+        <div id="db-result" class="result"></div>
+    </div>
+
+    <script>
+        // Initialize Supabase
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://svdznqczeedptnmwopem.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2ZHpucWN6ZWVkcHRubXdvcGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI0NzA1NDAsImV4cCI6MjA3ODA0NjU0MH0.osZK03Zyt_NrbrBV0Andv-VSEbEQVA-U5J0BqmDCIDI';
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const typeClass = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            element.innerHTML += `<span class="${typeClass}">${new Date().toLocaleTimeString()}: ${message}</span>\n`;
+        }
+
+        async function testConnection() {
+            const resultId = 'connection-result';
+            document.getElementById(resultId).innerHTML = '';
+
+            log(resultId, 'Testing Supabase connection...', 'info');
+
+            try {
+                // Test basic connection
+                const { data, error } = await supabaseClient.from('exercises').select('count');
+
+                if (error) {
+                    log(resultId, `Connection test failed: ${JSON.stringify(error)}`, 'error');
+                } else {
+                    log(resultId, `✓ Connected to Supabase successfully!`, 'success');
+                    log(resultId, `Project URL: ${supabaseUrl}`, 'info');
+                }
+            } catch (e) {
+                log(resultId, `Exception: ${e.message}`, 'error');
+            }
+        }
+
+        async function testLogin() {
+            const resultId = 'login-result';
+            document.getElementById(resultId).innerHTML = '';
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            log(resultId, `Attempting login with: ${email}`, 'info');
+
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    log(resultId, `Login failed: ${error.message}`, 'error');
+                    log(resultId, `Error details: ${JSON.stringify(error)}`, 'error');
+                } else {
+                    log(resultId, `✓ Login successful!`, 'success');
+                    log(resultId, `User ID: ${data.user.id}`, 'info');
+                    log(resultId, `Email: ${data.user.email}`, 'info');
+                    log(resultId, `Session Token: ${data.session.access_token.substring(0, 20)}...`, 'info');
+                }
+            } catch (e) {
+                log(resultId, `Exception: ${e.message}`, 'error');
+            }
+        }
+
+        async function testSignup() {
+            const resultId = 'signup-result';
+            document.getElementById(resultId).innerHTML = '';
+
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+
+            if (!email || !password) {
+                log(resultId, 'Please enter email and password', 'error');
+                return;
+            }
+
+            log(resultId, `Attempting signup with: ${email}`, 'info');
+
+            try {
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    log(resultId, `Signup failed: ${error.message}`, 'error');
+                    log(resultId, `Error details: ${JSON.stringify(error)}`, 'error');
+                } else {
+                    log(resultId, `✓ Signup successful!`, 'success');
+                    if (data.user) {
+                        log(resultId, `User ID: ${data.user.id}`, 'info');
+                        log(resultId, `Email confirmed: ${data.user.email_confirmed_at ? 'Yes' : 'No (check email)'}`, 'info');
+
+                        if (!data.user.email_confirmed_at) {
+                            log(resultId, `⚠️ Email confirmation required. Check your inbox.`, 'error');
+
+                            // Try auto-login for development
+                            setTimeout(async () => {
+                                log(resultId, `Attempting auto-login...`, 'info');
+                                const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
+                                    email,
+                                    password
+                                });
+                                if (loginData?.session) {
+                                    log(resultId, `✓ Auto-login successful (email confirmation may be disabled)`, 'success');
+                                } else {
+                                    log(resultId, `Auto-login failed: ${loginError?.message || 'Email confirmation required'}`, 'error');
+                                }
+                            }, 1000);
+                        }
+                    }
+                }
+            } catch (e) {
+                log(resultId, `Exception: ${e.message}`, 'error');
+            }
+        }
+
+        async function checkSession() {
+            const resultId = 'session-result';
+            document.getElementById(resultId).innerHTML = '';
+
+            log(resultId, 'Checking current session...', 'info');
+
+            try {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+                if (error) {
+                    log(resultId, `Session check failed: ${error.message}`, 'error');
+                } else if (session) {
+                    log(resultId, `✓ Active session found!`, 'success');
+                    log(resultId, `User: ${session.user.email}`, 'info');
+                    log(resultId, `User ID: ${session.user.id}`, 'info');
+                    log(resultId, `Expires: ${new Date(session.expires_at * 1000).toLocaleString()}`, 'info');
+                } else {
+                    log(resultId, `No active session`, 'info');
+                }
+            } catch (e) {
+                log(resultId, `Exception: ${e.message}`, 'error');
+            }
+        }
+
+        async function testDatabase() {
+            const resultId = 'db-result';
+            document.getElementById(resultId).innerHTML = '';
+
+            log(resultId, 'Testing database access...', 'info');
+
+            try {
+                // Check if user is logged in first
+                const { data: { session } } = await supabaseClient.auth.getSession();
+
+                if (!session) {
+                    log(resultId, 'No active session. Please login first.', 'error');
+                    return;
+                }
+
+                log(resultId, `User ID: ${session.user.id}`, 'info');
+
+                // Test profiles table
+                log(resultId, 'Checking profiles table...', 'info');
+                const { data: profile, error: profileError } = await supabaseClient
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows
+                    log(resultId, `Profile fetch error: ${profileError.message}`, 'error');
+                } else if (profile) {
+                    log(resultId, `✓ Profile found: ${JSON.stringify(profile, null, 2)}`, 'success');
+                } else {
+                    log(resultId, `No profile found for user (will be created on first login)`, 'info');
+                }
+
+                // Test exercises table
+                log(resultId, 'Checking exercises table...', 'info');
+                const { data: exercises, error: exerciseError } = await supabaseClient
+                    .from('exercises')
+                    .select('name, category')
+                    .limit(3);
+
+                if (exerciseError) {
+                    log(resultId, `Exercises fetch error: ${exerciseError.message}`, 'error');
+                } else {
+                    log(resultId, `✓ Found ${exercises.length} exercises`, 'success');
+                    exercises.forEach(ex => {
+                        log(resultId, `  - ${ex.name} (${ex.category})`, 'info');
+                    });
+                }
+
+            } catch (e) {
+                log(resultId, `Exception: ${e.message}`, 'error');
+            }
+        }
+
+        // Auto-run connection test on load
+        window.onload = () => {
+            testConnection();
+        };
+    </script>
+</body>
+</html>

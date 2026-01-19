@@ -1,0 +1,25 @@
+tablename,policyname,operation,applies_to
+achievements,Users can view own achievements,SELECT,Public
+coach_relationships,Users can view own coach relationships,SELECT,Public
+exercises,Anyone can read exercises,SELECT,authenticated
+feedback_signals,Users can manage own feedback,ALL,Public
+goals,Users can manage own goals,ALL,Public
+grit_scores,Users can view own grit scores,SELECT,Public
+media,Users can manage own media,ALL,Public
+media,Anyone can view public media,SELECT,authenticated
+nutrition_logs,Users can create own nutrition logs,INSERT,Public
+nutrition_logs,Users can view own nutrition logs,SELECT,Public
+nutrition_logs,Users can update own nutrition logs,UPDATE,Public
+performance_trends,Users can view own trends,SELECT,Public
+plan_adjustments,Users can view own plan adjustments,SELECT,Public
+practice_game_journals,Users can manage own journals,ALL,Public
+profiles,Users can insert own profile,INSERT,Public
+profiles,Users can view own profile,SELECT,Public
+profiles,Users can update own profile,UPDATE,Public
+training_plans,Users can delete own plans,DELETE,Public
+training_plans,Users can create own plans,INSERT,Public
+training_plans,Users can view own plans,SELECT,Public
+training_plans,Users can update own plans,UPDATE,Public
+workout_logs,Users can create own workout logs,INSERT,Public
+workout_logs,Users can view own workout logs,SELECT,Public
+workout_logs,Users can update own workout logs,UPDATE,Public

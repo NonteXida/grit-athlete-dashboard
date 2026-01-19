@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Execute Exercises Table SQL</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        .container {
+            background: #141414;
+            border: 1px solid #252525;
+            border-radius: 12px;
+            padding: 30px;
+        }
+        h1 {
+            color: #03fd1c;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #03fd1c;
+            color: #000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #02c916;
+        }
+        button:disabled {
+            background: #252525;
+            color: #666;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            background: #0a0a0a;
+            border: 1px solid #252525;
+            white-space: pre-wrap;
+            font-family: monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #03fd1c;
+        }
+        .error {
+            color: #ff4444;
+        }
+        .info {
+            color: #999;
+        }
+        .instructions {
+            background: #0a0a0a;
+            border: 1px solid #252525;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .instructions li {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create Exercises Table for AI Training Plan</h1>
+        <p>This will create the exercises table needed for AI training plan generation to work.</p>
+
+        <div class="instructions">
+            <h3>What this does:</h3>
+            <ul>
+                <li>Creates the <code>exercises</code> table in your Supabase database</li>
+                <li>Adds 67 sample exercises across different categories</li>
+                <li>Enables the AI training plan generator to select appropriate exercises</li>
+            </ul>
+        </div>
+
+        <button id="executeBtn" onclick="executeSQL()">Execute SQL</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+        const supabaseUrl = 'https://svdznqczeedptnmwopem.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2ZHpucWN6ZWVkcHRubXdvcGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjg3MzY1MjksImV4cCI6MjA0NDMxMjUyOX0.9u0Qh-3zZ0pOGqCHRq38OuB9VpCBxmNUvYgPULHudHg';
+        const supabase = createClient(supabaseUrl, supabaseKey);
+
+        window.executeSQL = async function() {
+            const btn = document.getElementById('executeBtn');
+            const status = document.getElementById('status');
+
+            btn.disabled = true;
+            status.innerHTML = '<span class="info">Starting execution...</span>\n';
+
+            try {
+                // First, check if table already exists
+                const { data: existingTable, error: checkError } = await supabase
+                    .from('exercises')
+                    .select('id')
+                    .limit(1);
+
+                if (!checkError) {
+                    status.innerHTML += '<span class="info">Table already exists. Checking exercises...</span>\n';
+
+                    const { count } = await supabase
+                        .from('exercises')
+                        .select('*', { count: 'exact', head: true });
+
+                    if (count > 0) {
+                        status.innerHTML += `<span class="success">✅ Exercises table already exists with ${count} exercises!</span>\n`;
+                        status.innerHTML += '<span class="success">✅ Your AI training plan generation should now work!</span>\n';
+                        btn.textContent = 'Already Complete';
+                        return;
+                    }
+                }
+
+                status.innerHTML += '<span class="info">Creating exercises table...</span>\n';
+
+                // The SQL content
+                const sql = `${await fetch('CREATE_EXERCISES_TABLE.sql').then(r => r.text())}`;
+
+                // Since we can't execute raw SQL from the browser, we'll need to use the Supabase Dashboard
+                status.innerHTML += '\n<span class="error">⚠️ Direct SQL execution from browser is not available.</span>\n\n';
+                status.innerHTML += '<span class="success">Please follow these steps to complete the setup:</span>\n\n';
+                status.innerHTML += '1. Go to your Supabase Dashboard SQL Editor:\n';
+                status.innerHTML += '   <a href="https://supabase.com/dashboard/project/svdznqczeedptnmwopem/sql" target="_blank" style="color: #03fd1c;">Open SQL Editor</a>\n\n';
+                status.innerHTML += '2. Copy the SQL from the CREATE_EXERCISES_TABLE.sql file\n\n';
+                status.innerHTML += '3. Paste it into the SQL editor and click "Run"\n\n';
+                status.innerHTML += '4. After successful execution, return to your app and try the "Build My Plan" feature!\n';
+
+                // Show first few lines of SQL
+                const sqlLines = sql.split('\n').slice(0, 10).join('\n');
+                status.innerHTML += '\n<span class="info">Preview of SQL to execute:</span>\n';
+                status.innerHTML += '<span class="info">' + sqlLines + '\n...</span>';
+
+            } catch (error) {
+                status.innerHTML += `<span class="error">Error: ${error.message}</span>\n`;
+            } finally {
+                if (btn.textContent !== 'Already Complete') {
+                    btn.disabled = false;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

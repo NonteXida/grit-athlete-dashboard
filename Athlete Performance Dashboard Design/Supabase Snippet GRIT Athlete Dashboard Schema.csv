@@ -1,0 +1,14 @@
+column_name,data_type,ordinal_position,is_nullable,column_default
+id,integer,1,NO,nextval('exercises_id_seq'::regclass)
+name,text,2,NO,null
+category,text,3,NO,null
+muscle_groups,jsonb,4,YES,'[]'::jsonb
+equipment_needed,jsonb,5,YES,'[]'::jsonb
+difficulty_level,integer,6,YES,null
+video_url,text,7,YES,null
+instructions,text,8,YES,null
+form_cues,jsonb,9,YES,'[]'::jsonb
+contraindications,jsonb,10,YES,'{}'::jsonb
+position_specific_for,jsonb,11,YES,'[]'::jsonb
+energy_system,text,12,YES,null
+created_at,timestamp with time zone,13,YES,now()

@@ -24,12 +24,7 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
   const [loadingGoals, setLoadingGoals] = useState(true);
   const [hasGritPlan, setHasGritPlan] = useState(false);
   const [trainingPlan, setTrainingPlan] = useState<any>(null);
-
-  const upcomingWorkouts = [
-    { day: 'Today', title: 'Upper Body Strength', time: '4:00 PM', exercises: 8 },
-    { day: 'Tomorrow', title: 'Speed & Agility', time: '3:30 PM', exercises: 6 },
-    { day: 'Friday', title: 'Lower Body Power', time: '4:00 PM', exercises: 7 },
-  ];
+  const [upcomingWorkouts, setUpcomingWorkouts] = useState<any[]>([]);
 
   const recentHighlights = [
     { 
@@ -234,14 +229,54 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
         setHasGritPlan(true);
         setTrainingPlan(data[0]);
         console.log('Found AI training plan:', data[0]);
+
+        // Extract this week's workouts from the plan
+        extractThisWeeksWorkouts(data[0]);
       } else {
         setHasGritPlan(false);
         setTrainingPlan(null);
+        setUpcomingWorkouts([]);
         console.log('No AI training plan found, error:', error);
       }
     } catch (error) {
       console.error('Error checking for GRIT plan:', error);
       setHasGritPlan(false);
+      setUpcomingWorkouts([]);
+    }
+  }
+
+  function extractThisWeeksWorkouts(plan: any) {
+    try {
+      if (!plan || !plan.plan_data || !plan.plan_data.training_weeks) {
+        setUpcomingWorkouts([]);
+        return;
+      }
+
+      // Get the first week's workouts (could be enhanced to track current week)
+      const firstWeek = plan.plan_data.training_weeks[0];
+      if (!firstWeek || !firstWeek.workouts) {
+        setUpcomingWorkouts([]);
+        return;
+      }
+
+      // Map workouts to the format expected by the UI
+      const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const workouts = firstWeek.workouts.slice(0, 3).map((workout: any, index: number) => {
+        const exerciseCount = workout.exercises?.length || 0;
+        const dayName = index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : daysOfWeek[(new Date().getDay() + index) % 7];
+
+        return {
+          day: dayName,
+          title: workout.name || workout.focus || 'Training Session',
+          time: '4:00 PM', // Default time, could be made configurable
+          exercises: exerciseCount
+        };
+      });
+
+      setUpcomingWorkouts(workouts);
+    } catch (error) {
+      console.error('Error extracting workouts:', error);
+      setUpcomingWorkouts([]);
     }
   }
 
@@ -266,13 +301,13 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
         <div className="absolute bottom-0 left-0 right-0 p-8">
           <div className="flex items-end justify-between">
             <div>
-              <h1 className="text-white mb-2">{userData.name}</h1>
+              <h1 className="text-white mb-2">{userData.name || 'Athlete'}</h1>
               <div className="flex items-center gap-4 text-gray-300">
-                <span>{userData.sport}</span>
-                <span>•</span>
-                <span>{userData.school}</span>
-                <span>•</span>
-                <span>Class of {userData.gradYear}</span>
+                {userData.sport && <span>{userData.sport}</span>}
+                {userData.sport && userData.school && <span>•</span>}
+                {userData.school && <span>{userData.school}</span>}
+                {(userData.sport || userData.school) && userData.graduation_year && <span>•</span>}
+                {userData.graduation_year && <span>Class of {userData.graduation_year}</span>}
               </div>
             </div>
             <Button variant="primary" onClick={() => onNavigate?.('profile')}>
@@ -428,23 +463,38 @@ export function DashboardHome({ userData, onNavigate, accessToken }: DashboardHo
             </Button>
           </div>
           <div className="space-y-4">
-            {upcomingWorkouts.map((workout, idx) => (
-              <div 
-                key={idx}
-                className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-[#252525] rounded-xl hover:border-[#03fd1c] transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[#03fd1c]/10 rounded-lg flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-[#03fd1c]" />
+            {upcomingWorkouts.length > 0 ? (
+              upcomingWorkouts.map((workout, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-4 bg-[#0a0a0a] border border-[#252525] rounded-xl hover:border-[#03fd1c] transition-all cursor-pointer"
+                  onClick={() => onNavigate?.('training')}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#03fd1c]/10 rounded-lg flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-[#03fd1c]" />
+                    </div>
+                    <div>
+                      <p className="text-white">{workout.title}</p>
+                      <p className="text-gray-400">{workout.day} • {workout.time} • {workout.exercises} exercises</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-white">{workout.title}</p>
-                    <p className="text-gray-400">{workout.day} • {workout.time} • {workout.exercises} exercises</p>
-                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400" />
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-400 mb-2">No training plan workouts scheduled yet</p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => onNavigate?.('planBuilder')}
+                  className="mt-2"
+                >
+                  Create Your GRIT Plan
+                </Button>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
